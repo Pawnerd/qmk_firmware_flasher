@@ -61,6 +61,7 @@ dfu_location = '"' + dfu_location + '"';
 loadOptionsState();
 
 $(document).ready(function() {
+  $currentTheme.val(ipcRenderer.sendSync('get-setting-theme'));
   $("<link/>", {
      rel: "stylesheet",
      type: "text/css",
@@ -289,6 +290,8 @@ function loadHex(filename) {
   $filePath.text(filename);
   clearStatus();
 
+  enableButton($flashHex);
+
   if (bootloader_ready) {
     if (autoFlashEnabled()) {
       clearStatus();
@@ -305,6 +308,7 @@ function loadHex(filename) {
       $flashHex.text(flashWhenReadyButtonText);
     }
     sendStatus(pressResetText);
+    $flashHex.text(flashWhenReadyButtonText);
   }
 
   watcher = chokidar.watch(filename, {});
