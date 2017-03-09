@@ -20,7 +20,6 @@ let watcher;
 let bootloader_ready = false;
 let flash_in_progress = false;
 let flash_when_ready = false;
-let ui_mode = 'simple';
 
 //HTML entities
 let $advancedFeatures = $('.advanced-feature');
@@ -62,7 +61,6 @@ dfu_location = '"' + dfu_location + '"';
 loadOptionsState();
 
 $(document).ready(function() {
-  $currentTheme.val(ipcRenderer.sendSync('get-setting-theme'));
   $("<link/>", {
      rel: "stylesheet",
      type: "text/css",
@@ -182,7 +180,7 @@ $(document).ready(function() {
   exec(dfu_location + ' --version', function(error, stdout, stderr) {
     if (stderr.indexOf('dfu-programmer') > -1) {
       window.setTimeout(checkForBoard, 10);
-      sendStatus("Select a firmware file by clicking 'Choose .hex' or drag and drop a file onto this window.", true);
+      sendStatus("Select a firmware file by clicking 'Choose .hex' or drag and drop a file onto this window.");
     } else {
       if (process.platform === 'win32') {
         sendStatus("Could not run dfu-programmer! Have you installed the driver?");
@@ -194,9 +192,9 @@ $(document).ready(function() {
       sendStatus(error);
       sendStatus("stdout:");
       writeStatus(stdout);
-      sendStatus("stderr:", false);
+      sendStatus("stderr:");
       writeStatus(stderr);
-      sendStatus("dfu location:", false);
+      sendStatus("dfu location:");
       writeStatus(dfu_location);
     }
   });
@@ -229,7 +227,7 @@ function checkFile(filename = $filePath.text()) {
     if (filename.slice(-4).toUpperCase() == '.HEX') {
         return true;
     } else {
-        sendStatus("Invalid firmware file: " + filename, true);
+        sendStatus("Invalid firmware file: " + filename);
         return false;
     }
 }
@@ -409,7 +407,7 @@ function flashFirmware() {
             sendStatus("Load another hex or press RESET on a keyboard.")
           }
       } else {
-          sendStatus("An error occurred - please try again.", true);
+          sendStatus("An error occurred - please try again.");
       }
   });
 }
@@ -445,7 +443,7 @@ function sendHex(file, callback) {
 }
 
 function eraseChip(callback) {
-  sendStatus('dfu-programmer atmega32u4 erase --force', false);
+  sendStatus('dfu-programmer atmega32u4 erase --force');
   exec(dfu_location + ' atmega32u4 erase --force', function(error, stdout, stderr) {
     writeStatus(stdout);
     writeStatus(stderr);
@@ -459,7 +457,7 @@ function eraseChip(callback) {
 }
 
 function flashChip(file, callback) {
-  sendStatus('dfu-programmer atmega32u4 flash ' + file, false);
+  sendStatus('dfu-programmer atmega32u4 flash ' + file);
   exec(dfu_location + ' atmega32u4 flash ' + file, function(error, stdout, stderr) {
     writeStatus(stdout);
     writeStatus(stderr);
@@ -472,7 +470,7 @@ function flashChip(file, callback) {
 }
 
 function resetChip(callback) {
-  sendStatus('dfu-programmer atmega32u4 reset', false);
+  sendStatus('dfu-programmer atmega32u4 reset');
   exec(dfu_location + ' atmega32u4 reset', function(error, stdout, stderr) {
     writeStatus(stdout);
     writeStatus(stderr);
