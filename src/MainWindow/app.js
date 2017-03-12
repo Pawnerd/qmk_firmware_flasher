@@ -10,7 +10,26 @@ const pathModule = require('path');
 const chokidar = require('chokidar');
 const bootstrap = require('bootstrap');
 const bootbox = require('bootbox');
+const usb = require('usb');
 
+const usbDevices = {
+  1003: {  // Atmel Corp., list sourced from http://www.linux-usb.org/usb.ids
+    12270: ['atmega8u2'],
+    12271: ['atmega16u2'],
+    12272: ['atmega32u2'],
+    12273: ['at32uc3a3'],
+    12275: ['atmega16u4'],
+    12276: ['atmega32u4'],
+    12278: ['at32uc3b0', 'at32uc3b1'],
+    12279: ['at90usb82'],
+    12280: ['at32uc3a0', 'at32uc3a1'],
+    12281: ['at90usb646', 'at90usb646'],
+    12282: ['at90usb162'],
+    12283: ['at90usb1286', 'at90usb1287'],
+    12285: ['at89c5130', 'at89c5131'],
+    12287: ['at89c5132', 'at89c5snd1c'],
+  }
+}
 const win = remote.getCurrentWindow();
 
 let dfu_location = pathModule.normalize('dfu/dfu-programmer');
@@ -18,6 +37,7 @@ let watcher;
 
 // State variables
 let bootloader_ready = false;
+let dfu_device = null;
 let flash_in_progress = false;
 let flash_when_ready = false;
 
@@ -67,7 +87,6 @@ $(document).ready(function() {
      href: "themes/" + $currentTheme.val() + ".css"
   }).appendTo("head");
 
-  console.log(ipcRenderer.sendSync('get-setting-advanced-mode'))
   if (ipcRenderer.sendSync('get-setting-advanced-mode')) {
     $advancedFeatures.show();
   } else {
@@ -443,8 +462,8 @@ function sendHex(file, callback) {
 }
 
 function eraseChip(callback) {
-  sendStatus('dfu-programmer atmega32u4 erase --force');
-  exec(dfu_location + ' atmega32u4 erase --force', function(error, stdout, stderr) {
+  sendStatus('dfu-programmer ' + dfu_device + ' erase --force');
+  exec(dfu_location + ' ' + dfu_device + ' erase --force', function(error, stdout, stderr) {
     writeStatus(stdout);
     writeStatus(stderr);
     const regex = /.*Success.*\r?\n|\rChecking memory from .* Empty.*/;
@@ -457,8 +476,8 @@ function eraseChip(callback) {
 }
 
 function flashChip(file, callback) {
-  sendStatus('dfu-programmer atmega32u4 flash ' + file);
-  exec(dfu_location + ' atmega32u4 flash ' + file, function(error, stdout, stderr) {
+  sendStatus('dfu-programmer ' + dfu_device + ' flash ' + file);
+  exec(dfu_location + ' ' + dfu_device + ' flash ' + file, function(error, stdout, stderr) {
     writeStatus(stdout);
     writeStatus(stderr);
     if (stderr.indexOf("Validating...  Success") > -1) {
@@ -470,8 +489,8 @@ function flashChip(file, callback) {
 }
 
 function resetChip(callback) {
-  sendStatus('dfu-programmer atmega32u4 reset');
-  exec(dfu_location + ' atmega32u4 reset', function(error, stdout, stderr) {
+  sendStatus('dfu-programmer ' + dfu_device + ' reset');
+  exec(dfu_location + ' ' + dfu_device + ' reset', function(error, stdout, stderr) {
     writeStatus(stdout);
     writeStatus(stderr);
 	if (stderr == "") {
@@ -484,39 +503,49 @@ function resetChip(callback) {
 
 function checkForBoard() {
   if (!flash_in_progress) {
-    exec(dfu_location + ' atmega32u4 get bootloader-version', function(error, stdout, stderr) {
-      if (stdout.indexOf("Bootloader Version:") > -1) {
-        if (!bootloader_ready && checkFileSilent()) {
-          clearStatus();
-        }
+    // First look for a supported bootloader
+    dfu_device = null;
+    for (let device of usb.getDeviceList()) {
+      if (usbDevices.hasOwnProperty(device.deviceDescriptor.idVendor) && (usbDevices[device.deviceDescriptor.idVendor].hasOwnProperty(device.deviceDescriptor.idProduct))) {
+        dfu_device = usbDevices[device.deviceDescriptor.idVendor][device.deviceDescriptor.idProduct];
+        break; // First match wins for now
+      }
+    }
+    if (dfu_device) {
+      exec(dfu_location + ' ' + dfu_device + ' get bootloader-version', function(error, stdout, stderr) {
+        if (stdout.indexOf("Bootloader Version:") > -1) {
+          if (!bootloader_ready && checkFileSilent()) {
+            clearStatus();
+          }
 
-        if (!bootloader_ready) {
-          bootloader_ready = true;
-          if (checkFileSilent()) {
-            if (flash_when_ready || autoFlashEnabled()) {
-              flashFirmware();
-            } else {
-              enableButton($flashHex);
-              enableButton($rebootMCU);
-              setFlashButtonImmediate();
-              sendStatus("Ready To Flash!");
+          if (!bootloader_ready) {
+            bootloader_ready = true;
+            if (checkFileSilent()) {
+              if (flash_when_ready || autoFlashEnabled()) {
+                flashFirmware();
+              } else {
+                enableButton($flashHex);
+                enableButton($rebootMCU);
+                setFlashButtonImmediate();
+                sendStatus("Ready To Flash!");
+              }
             }
           }
-        }
-      } else if (bootloader_ready) {
-        bootloader_ready = false;
-        disableButton($rebootMCU);
-        if(checkFileSilent() && !autoFlashEnabled()) {
-          if(!flash_when_ready){
-            enableButton($flashHex);
+        } else if (bootloader_ready) {
+          bootloader_ready = false;
+          disableButton($rebootMCU);
+          if(checkFileSilent() && !autoFlashEnabled()) {
+            if(!flash_when_ready){
+              enableButton($flashHex);
+            }
+            setFlashButtonWhenReady();
+          } else {
+            setFlashButtonImmediate();
+            disableButton($flashHex);
           }
-          setFlashButtonWhenReady();
-        } else {
-          setFlashButtonImmediate();
-          disableButton($flashHex);
         }
-      }
-    });
+      });
+    }
   }
 
   if (bootloader_ready) {
