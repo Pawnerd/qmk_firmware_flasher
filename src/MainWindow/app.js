@@ -508,6 +508,7 @@ function checkForBoard() {
     for (let device of usb.getDeviceList()) {
       if (usbDevices.hasOwnProperty(device.deviceDescriptor.idVendor) && (usbDevices[device.deviceDescriptor.idVendor].hasOwnProperty(device.deviceDescriptor.idProduct))) {
         dfu_device = usbDevices[device.deviceDescriptor.idVendor][device.deviceDescriptor.idProduct];
+        console.log('Found atmel device: '+dfu_device[0]);
         break; // First match wins for now
       }
     }
@@ -549,10 +550,13 @@ function checkForBoard() {
   }
 
   if (bootloader_ready) {
+    // Check again in 1 second if the bootloader was ready this check
     window.setTimeout(checkForBoard, 1000);
   } else if (autoFlashEnabled()) {
+    // Check again in half a second if auto flash is enabled
     window.setTimeout(checkForBoard, 500);
   } else {
+    // All other situations check every 5 seconds
     window.setTimeout(checkForBoard, 5000);
   }
 }
